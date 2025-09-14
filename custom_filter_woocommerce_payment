@@ -1,0 +1,34 @@
+add_filter('woocommerce_available_payment_gateways', 'sg_filter_gateways_by_product_type');
+
+function sg_filter_gateways_by_product_type($available_gateways) {
+    if (is_admin() || !is_checkout()) {
+        return $available_gateways;
+    }
+
+    $has_subscription = false;
+
+    // Loop through cart items to detect subscription products
+    foreach (WC()->cart->get_cart() as $cart_item) {
+        if (isset($cart_item['data']) && $cart_item['data']->is_type('subscription')) {
+            $has_subscription = true;
+            break;
+        }
+
+        // Catch variable subscription products too
+        if (function_exists('wcs_is_subscription') && wcs_is_subscription($cart_item['product_id'])) {
+            $has_subscription = true;
+            break;
+        }
+    }
+
+    if ($has_subscription) {
+        // Subscription product detected – use Stripe only
+        unset($available_gateways['ppcp-gateway']);
+        unset($available_gateways['ppcp-credit-card-gateway']);
+    } else {
+        // One-time product – use PayPal only
+        unset($available_gateways['stripe']);
+    }
+
+    return $available_gateways;
+}
